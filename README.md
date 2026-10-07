@@ -47,7 +47,7 @@ To ensure realistic and actionable portfolio allocations, the optimization funct
   Restricts aggregate exposure to specific sectors (e.g., Technology, Financials, Energy) to maintain diversification across macroeconomic factors.
 
 * Turnover Limits:
-  $\Vert{} w - w_{\text{initial}} \Vert{}_1 \le T_{\text{max}}$
+  $| w - w_{\text{initial}} | \leq T_{\text{max}}$
   Limits the total absolute rebalancing change relative to a current baseline portfolio $w_{\text{initial}}$, controlling transaction costs and market impact.
 
 ---
