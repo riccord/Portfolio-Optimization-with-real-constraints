@@ -55,23 +55,6 @@ To ensure realistic and actionable portfolio allocations, the optimization funct
 
 ---
 
-## Methodology Pipeline
-
-1. Data Acquisition and Preprocessing:
-   Fetch adjusted closing prices for SPDR sector ETFs, compute log-returns, and derive annualised mean return vector $\mu$ and covariance matrix $\Sigma$.
-
-2. Covariance Matrix Regularization:
-   Apply Tikhonov regularization $\Sigma_{\text{reg}} = \Sigma + \varepsilon I$. Evaluate the condition number across multiple values of $\varepsilon$ to optimize stability without distorting variance relationships.
-
-3. Optimization Execution:
-   Execute optimization using the `PortfolioOptimization` class methods:
-   * `solve_min_variance()`
-   * `solve_target_return(target_return)`
-   * `solve_risk_aversion(risk_aversion)`
-
-   All methods accept optional arguments for $w_{\text{max}}$, sector bounds, initial portfolio weights, and turnover thresholds.
-
----
 
 ## Requirements and Installation
 
