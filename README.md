@@ -1,75 +1,102 @@
 # Portfolio-Optimization-with-real-constraints
 
 
-A Python-based framework for professional-grade portfolio allocation and optimization. This project implements constrained optimization models, covariance matrix regularization techniques to reduce estimation noise, market perturbation stability analysis, and shadow cost evaluation for portfolio constraints.
+# Portfolio Optimization Analysis
+
+Questo progetto implementa un sistema completo di ottimizzazione di portafoglio finanziario in Python utilizzando **CVXPY** e **yfinance**. Partendo dal classico modello di Markowitz (Mean-Variance), il notebook sviluppa varianti avanzate che includono vincoli di rendimento target, parametro di avversione al rischio ($\lambda$) e regolarizzazione della matrice di covarianza.
 
 ---
 
-## Key Features
-
-* **Constrained Portfolio Optimization:** Solves convex Markowitz portfolio problems (Mean-Variance, Max Sharpe Ratio, Minimum Variance) with real-world operational constraints using `CVXPY`.
-* **Covariance Matrix Regularization:** Applies Tikhonov regularization (L2 Shrinkage) to stabilize ill-conditioned sample covariance matrices and remove historical noise.
-* **Stability & Perturbation Analysis:** Evaluates portfolio weight robustness against stochastic fluctuations in input parameters ($\mu$ and $\Sigma$).
-* **Shadow Cost Analysis:** Analyzes the economic impact of allocation constraints by evaluating the trade-offs between constraints and portfolio performance.
-
----
-
-## Theoretical Framework & Methodology
-
-### 1. Covariance Matrix Regularization (Tikhonov / L2 Shrinkage)
-The empirical sample covariance matrix $\Sigma_{sample}$ often suffers from estimation noise, particularly when the number of assets is large relative to the historical time horizon. To improve the conditioning of the matrix, Tikhonov regularization is applied:
-
-$$\Sigma_{reg} = \Sigma_{sample} + \gamma I$$
-
-Where:
-* $\gamma \ge 0$ is the regularization parameter.
-* $I$ is the identity matrix ($N \times N$).
-
-*Benefit:* Reduces the matrix condition number, prevents extreme or unstable positions, and enhances out-of-sample weight stability.
+## 📋 Indice dei Contenuti
+- [Asset e Dati Utilizzati](#-asset-e-dati-utilizzati)
+- [Metodologia e Modelli](#-metodologia-e-modelli)
+  - [1. Fondamenti Matematici](#1-fondamenti-matematici)
+  - [2. Regolarizzazione della Matrice di Covarianza (Tikhonov)](#2-regolarizzazione-della-matrice-di-covarianza-tikhonov)
+  - [3. Strategie di Ottimizzazione](#3-strategie-di-ottimizzazione)
+- [Risultati dell'Analisi](#-risultati-dellanalisi)
+- [Requisiti e Installazione](#-requisiti-e-installazione)
 
 ---
 
-### 2. Optimization Problem Formulation
+## 📈 Asset e Dati Utilizzati
 
-Asset allocation is structured as a Quadratic Programming (QP) problem:
+L'analisi utilizza **5 anni di dati storici giornalieri** estratti tramite Yahoo Finance (`yfinance`) relativi a **10 ETF settoriali SPDR**:
 
-$$\begin{aligned} \min_{w} \quad & \frac{1}{2} w^T \Sigma_{reg} w - \lambda \mu^T w \\ \text{subject to} \quad & \sum_{i=1}^{N} w_i = 1 \quad \text{(Full Investment)} \\ & w_{min} \le w_i \le w_{max} \quad \text{(Position Limits / Long-Only)} \\ & A_{sector} w \le b_{settore} \quad \text{(Sector Exposure Constraints)} \end{aligned}$$
+| Ticker | Settore | Rendimento Atteso Ann. (%) | Volatilità Ann. (%) | Sharpe Ratio |
+| :--- | :--- | :---: | :---: | :---: |
+| **XLK** | Technology | 6.086% | 19.084% | 0.319 |
+| **XLF** | Financials | 19.895% | 25.539% | 0.779 |
+| **XLV** | Healthcare | 8.272% | 18.318% | 0.452 |
+| **XLY** | Consumer Disc | 12.186% | 17.588% | 0.693 |
+| **XLP** | Consumer Staples | 20.425% | 25.896% | 0.789 |
+| **XLE** | Energy | 5.786% | 13.714% | 0.422 |
+| **XLI** | Industrials | 1.768% | 19.150% | 0.092 |
+| **XLB** | Materials | 7.850% | 17.441% | 0.450 |
+| **XLU** | Utilities | 7.168% | 15.173% | 0.472 |
+| **XLRE**| Real Estate | 4.902% | 24.129% | 0.203 |
 
-Where $w$ represents the asset weight vector, $\Sigma_{reg}$ the regularized covariance matrix, and $\mu$ the expected return vector.
-
----
-
-### 3. Stability & Perturbation Analysis
-
-To assess portfolio sensitivity to market data uncertainty, Gaussian noise is injected into returns ($\mu$) and the covariance matrix ($\Sigma$):
-
-$$\mu_{perturbed} \sim \mathcal{N}(\mu, \eta_\mu \cdot \text{diag}(\Sigma))$$
-$$\Sigma_{perturbed} = \Sigma + E, \quad E \sim \mathcal{N}(0, \eta_\Sigma)$$
-
-Allocation stability is measured by tracking weight dispersion via L1/L2 norm:
-
-$$\text{Dispersion} = \mathbb{E} \left[ \Vert{} w^* - w^*_{perturbed} \Vert{}_2 \right]$$
+> *Nota: I rendimenti giornalieri sono calcolati come log-returns e annualizzati con un fattore pari a 252.*
 
 ---
 
-### 4. Constraint Shadow Costs
+## 📐 Metodologia e Modelli
 
-The framework evaluates the marginal cost of imposed constraints (e.g., concentration limits or risk thresholds). By gradually tweaking constraint bounds $b$, it quantifies the sacrifice in return or Sharpe ratio per unit of constraint tightened:
+### 1. Fondamenti Matematici
+Dato un vettore dei rendimenti attesi $\mu \in \mathbb{R}^n$ e una matrice di covarianza $\Sigma$:
 
-$$\text{Shadow Cost} = \frac{\partial f^*(b)}{\partial b}$$
+* **Minima Varianza:**
+  $$\min_w w^T \Sigma w \quad \text{s.t.} \quad \mathbf{1}^T w = 1, \quad w \ge 0$$
+
+* **Target Return:**
+  $$\min_w w^T \Sigma w \quad \text{s.t.} \quad \mathbf{1}^T w = 1, \quad w \ge 0, \quad w^T \mu \ge \mu_{\text{target}}$$
+
+* **Avversione al Rischio ($\lambda$):**
+  $$\max_w \left( \mu^T w - \lambda \cdot w^T \Sigma w \right) \quad \text{s.t.} \quad \mathbf{1}^T w = 1, \quad w \ge 0$$
 
 ---
 
-## Project Structure
+### 2. Regolarizzazione della Matrice di Covarianza (Tikhonov)
+Per migliorare la stabilità numerica dell'ottimizzazione e ridurre il numero di condizionamento, viene applicata la regolarizzazione di Tikhonov:
+$$\Sigma_{\text{reg}} = \Sigma + \varepsilon I$$
 
-```text
-├── data/                  # Historical data downloads and cache
-├── notebooks/             # Exploratory notebooks and graphic reports
-├── src/
-│   ├── data_loader.py     # YFinance fetching and log returns calculation
-│   ├── covariance.py      # Covariance estimation and Tikhonov regularization
-│   ├── optimizer.py       # Optimization engine with CVXPY and constraint management
-│   └── stability.py       # Module for Monte Carlo stability analysis and Shadow Costs
-├── main.py                # Main execution pipeline
-├── requirements.txt       # Project dependencies
-└── README.md
+Nel notebook viene analizzato l'impatto di vari livelli di $\varepsilon$ ($0 \le \varepsilon \le 0.01$). Per tutte le successive ottimizzazioni è stato selezionato **$\varepsilon = 0.0089$**, riducendo il *condition number* della matrice da **48.22** a **17.30**.
+
+---
+
+### 3. Strategie di Ottimizzazione
+
+All'interno della classe Python `PortfolioOptimization`, sono stati implementati tre risolutori convessi tramite **CVXPY**:
+
+1. `solve_min_variance()`: Calcola il portafoglio a minima varianza globale.
+2. `solve_target_return(target_return)`: Trova i pesi ottimali vincolati a un rendimento minimo target.
+3. `solve_risk_aversion(risk_aversion)`: Massimizza la funzione di utilità quadratica in base al parametro $\lambda$.
+
+---
+
+## 📊 Risultati dell'Analisi
+
+I tre portafogli generati nel notebook mostrano la seguente allocazione dei pesi:
+
+| Asset / Settore | Min Variance (%) | Target Return (12%) (%) | Risk Aversion ($\lambda=1.5$) (%) |
+| :--- | :---: | :---: | :---: |
+| **Technology** | 0.00% | 0.00% | 0.00% |
+| **Financials** | 9.82% | 19.89% | 49.28% |
+| **Healthcare** | 4.10% | 0.00% | 0.00% |
+| **Consumer Disc** | 6.88% | 5.33% | 0.00% |
+| **Consumer Staples** | 5.90% | 17.47% | 50.72% |
+| **Energy** | 34.93% | 27.07% | 0.00% |
+| **Industrials** | 0.00% | 0.00% | 0.00% |
+| **Materials** | 15.74% | 13.43% | 0.00% |
+| **Utilities** | 22.64% | 16.81% | 0.00% |
+| **Real Estate** | 0.00% | 0.00% | 0.00% |
+| **Rendimento Atteso** | — | — | **20.16%** |
+| **Volatilità Totale** | **13.14%** | **13.77%** | **21.33%** |
+
+---
+
+## 🛠 Requisiti e Installazione
+
+Per eseguire il notebook è necessario installare i seguenti pacchetti Python:
+
+```bash
+pip install pandas numpy matplotlib yfinance cvxpy
