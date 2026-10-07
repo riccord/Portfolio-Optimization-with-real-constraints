@@ -1,6 +1,3 @@
-# Portfolio-Optimization-with-real-constraints
-
-
 # Portfolio Optimization Analysis
 
 This repository implements a quantitative portfolio optimization framework in Python using CVXPY and yfinance. Beginning with Markowitz Modern Portfolio Theory (Mean-Variance Framework), the project extends into constrained optimization models incorporate sector limits, turnover penalties, single-asset maximum weights, and covariance matrix regularization.
